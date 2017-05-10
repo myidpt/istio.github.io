@@ -7,14 +7,16 @@ order: 10
 layout: docs
 type: markdown
 ---
+{% include home.html %}
 
 This sample deploys a simple application composed of four separate microservices which will be used
 to demonstrate various features of the Istio service mesh.
 
 ## Before you begin
+* If you use GKE, please ensure your cluster has at least 4 standard GKE nodes.
 
-Setup Istio by following the instructions in the
-[Installation guide](/docs/tasks/installing-istio.html).
+* Setup Istio by following the instructions in the
+[Installation guide]({{home}}/docs/tasks/installing-istio.html).
 
 ## Overview
 
@@ -23,7 +25,7 @@ book, similar to a single catalog entry of an online book store. Displayed
 on the page is a description of the book, book details (ISBN, number of
 pages, and so on), and a few book reviews.
 
-The bookinfo application is broken into four separate microservices:
+The BookInfo application is broken into four separate microservices:
 
 * *productpage*. The productpage microservice calls the *details* and *reviews* microservices to populate the page.
 * *details*. The details microservice contains book information.
@@ -38,13 +40,19 @@ There are 3 versions of the reviews microservice:
 
 The end-to-end architecture of the application is shown below.
 
-![Bookinfo app_noistio](/docs/samples/img/bookinfo/noistio.svg)
+![BookInfo application without Istio](./img/bookinfo/noistio.svg)
 
 This application is polyglot, i.e., the microservices are written in different languages.
 
 ## Start the application
 
-1. Change your current working directory to the bookinfo application directory:
+1. Source the Istio configuration file from the root of the installation directory:
+
+   ```bash
+   source istio.VERSION
+   ```
+
+1. Change your current working directory to the `bookinfo` application directory:
 
    ```bash
    cd demos/apps/bookinfo
@@ -65,17 +73,22 @@ This application is polyglot, i.e., the microservices are written in different l
 
    Notice that the `istioctl kube-inject` command is used to modify the `bookinfo.yaml`
    file before creating the deployments. This injects Envoy into Kubernetes resources
-   as documented [here](/docs/reference/istioctl/istioctl_kube-inject.html).
+   as documented [here]({{home}}/docs/reference/commands/istioctl.html#istioctl-kube-inject).
    Consequently, all of the microservices are now packaged with an Envoy sidecar
    that manages incoming and outgoing calls for the service. The updated diagram looks
    like this:
 
-   ![Bookinfo app](/docs/samples/img/bookinfo/withistio.svg)
+   ![BookInfo application](./img/bookinfo/withistio.svg)
 
 1. Confirm all services and pods are correctly defined and running:
 
    ```bash
-   $ kubectl get services
+   kubectl get services
+   ```
+
+   which produces the following output:
+   
+   ```bash
    NAME                       CLUSTER-IP   EXTERNAL-IP   PORT(S)              AGE
    details                    10.0.0.31    <none>        9080/TCP             6m
    istio-ingress              10.0.0.122   <pending>     80:31565/TCP         8m
@@ -90,7 +103,12 @@ This application is polyglot, i.e., the microservices are written in different l
    and
 
    ```bash
-   $ kubectl get pods
+   kubectl get pods
+   ```
+   
+   which produces
+   
+   ```bash
    NAME                                        READY     STATUS    RESTARTS   AGE
    details-v1-1520924117-48z17                 2/2       Running   0          6m
    istio-ingress-3181829929-xrrk5              1/1       Running   0          8m
@@ -105,35 +123,53 @@ This application is polyglot, i.e., the microservices are written in different l
 
 1. Determine the gateway ingress URL:
 
-   If your cluster is running in an environment that supports external loadbalancers,
-   use the ingress' external address:
-
    ```bash
-   $ kubectl get ingress -o wide
+   kubectl get ingress -o wide
+   ```
+   
+   ```bash
    NAME      HOSTS     ADDRESS                 PORTS     AGE
    gateway   *         130.211.10.121          80        1d
-   $ export GATEWAY_URL=130.211.10.121:80
+   ```
+   ```bash
+   export GATEWAY_URL=130.211.10.121:80
    ```
 
-   If loadbalancers are not supported, use the service NodePort instead:
+   If your Kubernetes cluster is running in an environment that supports external load balancers, like for instance GKE, and the Istio ingress service was able
+   to obtain an External IP, the ingress' resource IP Address will be equal to the ingress' service External IP.
+   You can directly use that IP Address in your browser to access the http://$GATEWAY_URL/productpage.
+
+   If the service did not obtain an External IP, the ingress' IP Address will display a list of NodePort addresses.
+   You can use any of these addresses to access the ingress, but if the cluster has a firewall, you will also need to create a firewall rule
+   to allow TCP traffic to the NodePort. For instance, in GKE, create a firewall rule with these commands:
    ```bash
-   $ export GATEWAY_URL=$(kubectl get po -l istio=ingress -o jsonpath={.items[0].status.hostIP}):$(kubectl get svc istio-ingress -o jsonpath={.spec.ports[0].nodePort})
+   kubectl get svc istio-ingress -o jsonpath={.spec.ports[0].nodePort}
+   ```
+   ```bash
+   31201
+   ```
+   ```bash
+   gcloud compute firewall-rules create allow-book --allow tcp:31201
    ```
 
-1. Confirm that the bookinfo application is running with the following `curl` command:
+1. Confirm that the BookInfo application is running by opening in your browser http://$GATEWAY_URL/productpage , or with the following `curl` command:
 
    ```bash
-   $ curl -o /dev/null -s -w "%{http_code}\n" http://$GATEWAY_URL/productpage
+   curl -o /dev/null -s -w "%{http_code}\n" http://$GATEWAY_URL/productpage
+   ```
+   ```bash
    200
    ```
 
 1. If you have installed the Istio addons, in particular the servicegraph addon, from the
-   [Installation guide](/docs/tasks/installing-istio.html), a generated servicegraph
+   [Installation guide]({{home}}/docs/tasks/installing-istio.html), a generated servicegraph
    of the cluster is available.
    
    Get the external IP Address (and port) of the servicegraph service:
    ```bash
-   $ kubectl get svc servicegraph 
+   kubectl get svc servicegraph 
+   ```
+   ```bash
    NAME           CLUSTER-IP      EXTERNAL-IP       PORT(S)          AGE
    servicegraph   10.75.240.195   104.196.248.114   8088:32556/TCP   23m
    ```
@@ -145,7 +181,7 @@ This application is polyglot, i.e., the microservices are written in different l
    http://104.196.248.114:8088/dotviz). After the single `curl` request from an earlier step, 
    the resulting image will look something like:
    
-   ![Bookinfo servicegraph](/docs/samples/img/bookinfo/servicegraph.png)
+   ![BookInfo service graph](./img/bookinfo/servicegraph.png)
    
    The servicegraph should show very low (or zero) QPS values, as only a single request has been sent. The
    service uses a default time window of 5 minutes for calculating moving QPS averages. Send a consistent 
@@ -155,12 +191,12 @@ This application is polyglot, i.e., the microservices are written in different l
 
 ## What's next
 
-Now that you have the bookinfo sample up and running, you can use Istio to control traffic routing,
+Now that you have the BookInfo sample up and running, you can use Istio to control traffic routing,
 inject faults, rate limit services, etc..
 
-* To get started, check out the [request routing task](/docs/tasks/request-routing.html)
+* To get started, check out the [request routing task]({{home}}/docs/tasks/request-routing.html)
 
-* When you're finished experimenting with the bookinfo sample, you can uninstall it as follows:
+* When you're finished experimenting with the BookInfo sample, you can uninstall it as follows:
 
 1. Delete the routing rules and terminate the application pods
 
@@ -172,5 +208,5 @@ inject faults, rate limit services, etc..
 
    ```bash
    istioctl get route-rules   #-- there should be no more routing rules
-   kubectl get pods           #-- the bookinfo pods should be deleted
+   kubectl get pods           #-- the BookInfo pods should be deleted
    ```
